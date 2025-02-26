@@ -4,8 +4,12 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from database import Database
 
 
+
 token = dotenv_values(".env")["BOT_TOKEN"]
 bot = Bot(token=token)
 storage = MemoryStorage()
 database = Database("reviews.db")
 dp = Dispatcher(bot, storage=storage)
+
+
+ADMINS = [5673116554,]

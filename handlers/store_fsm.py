@@ -1,7 +1,9 @@
 from aiogram import types, Dispatcher
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
-from aiogram.dispatcher import FSMContext  #$#
+from aiogram.dispatcher import FSMContext
+from db import main_db
+
 
 class StoreFSM(StatesGroup):
     name_product = State()
@@ -17,41 +19,41 @@ async def start_fsm_store(message: types.Message):
     await StoreFSM.name_product.set()
     await message.answer("Напишите название товара: ")
 
-
 async def load_name(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data["name_product"] = message.text
+        data['name_product'] = message.text
 
     await StoreFSM.next()
-    await message.answer("Введите категорию товара")
+    await message.answer("Введите категорию товара: ")
 
 
 async def load_category(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data["category"] = message.text
+        data['category'] = message.text
 
     await StoreFSM.next()
-    await message.answer("Введите цену товара")
+    await message.answer("Введите цену товара: ")
+
 
 async def load_price(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data["price"] = message.text
+        data['price'] = message.text
 
     await StoreFSM.next()
-    await message.answer("Введите размер товара")
+    await message.answer("Введите размер товара: ")
 
 
 async def load_size(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data["size"] = message.text
+        data['size'] = message.text
 
     await StoreFSM.next()
-    await message.answer("Введите артикул для товара")
+    await message.answer("Введите артикул товара: ")
 
 
 async def load_product_id(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data["product_id"] = message.text
+        data['product_id'] = message.text
 
     await StoreFSM.next()
     await message.answer("Отправьте описание товара")
@@ -67,30 +69,45 @@ async def load_infoproduct(message: types.Message, state: FSMContext):
 
 async def load_photo(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data["photo"] = message.photo[-1].file_id
+        data['photo'] = message.photo[-1].file_id
 
     await StoreFSM.next()
-    await message.answer("Верные ли данные?")
+    await message.answer("Верны ли данные ?: ")
     await message.answer_photo(photo=data['photo'],
                                caption=f'Название - {data["name_product"]}\n'
                                        f'Категория - {data["category"]}\n'
                                        f'Цена - {data["price"]}\n'
                                        f'Размер - {data["size"]}\n'
                                        f'Артикул - {data["product_id"]}\n'
-                                       f'Описание - {data["infoproduct"]}\n')
+                                       f'Описание - {data["infoproduct"]}')
 
 async def submit_load(message: types.Message, state: FSMContext):
     if message.text == 'да':
         async with state.proxy() as data:
+
+            await main_db.sql_insert_store(
+                name_product=data['name_product'],
+                price=data['price'],
+                size=data['size'],
+                product_id=data['product_id'],
+                photo=data['photo']
+            )
+
+            await main_db.sql_insert_store_details(
+                category=data['category'],
+                infoproduct=data['infoproduct'],
+                product_id=data['product_id']
+            )
+
             await message.answer('Ваши данные в базе!')
+
+
             await state.finish()
     elif message.text == 'нет':
         await message.answer('Хорошо, отменено!')
-        await state.finish()
 
     else:
         await message.answer('Выберите да или нет')
-
 
 async def cancel_fsm(message: types.Message, state: FSMContext):
     current_state = await state.get_state()
@@ -98,6 +115,7 @@ async def cancel_fsm(message: types.Message, state: FSMContext):
     if current_state is not None:
         await state.finish()
         await message.answer('Отменено!')
+
 
 def register_handlers(dp: Dispatcher):
     dp.register_message_handler(cancel_fsm,
